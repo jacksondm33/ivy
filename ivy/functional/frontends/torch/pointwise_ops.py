@@ -42,13 +42,19 @@ def add(input, other, *, alpha=1, out=None):
 @to_ivy_arrays_and_back
 @with_unsupported_dtypes({"2.2 and below": ("float16", "bfloat16")}, "torch")
 def addcdiv(input, tensor1, tensor2, *, value=1, out=None):
-    return ivy.add(input, ivy.multiply(value, ivy.divide(tensor1, tensor2)), out=out)
+    tensor1, tensor2 = torch_frontend.promote_types_of_torch_inputs(tensor1, tensor2)
+    quot = ivy.multiply(value, ivy.divide(tensor1, tensor2))
+    input, quot = torch_frontend.promote_types_of_torch_inputs(input, quot)
+    return ivy.add(input, quot, out=out)
 
 
 @to_ivy_arrays_and_back
 @with_unsupported_dtypes({"2.2 and below": ("float16", "bfloat16")}, "torch")
 def addcmul(input, tensor1, tensor2, *, value=1, out=None):
-    return ivy.add(input, ivy.multiply(value, ivy.multiply(tensor1, tensor2)), out=out)
+    tensor1, tensor2 = torch_frontend.promote_types_of_torch_inputs(tensor1, tensor2)
+    prod = ivy.multiply(value, ivy.multiply(tensor1, tensor2))
+    input, prod = torch_frontend.promote_types_of_torch_inputs(input, prod)
+    return ivy.add(input, prod, out=out)
 
 
 @to_ivy_arrays_and_back
@@ -154,6 +160,7 @@ def conj_physical(input, *, out=None):
 @with_unsupported_dtypes({"1.12.0 and below": ("float16",)}, "jax")
 @to_ivy_arrays_and_back
 def copysign(input, other, *, out=None):
+    input, other = torch_frontend.promote_types_of_torch_inputs(input, other)
     return ivy.copysign(input, other, out=out)
 
 
@@ -230,13 +237,15 @@ def floor(input, *, out=None):
 
 @to_ivy_arrays_and_back
 def floor_divide(input, other, *, out=None):
+    input, other = torch_frontend.promote_types_of_torch_inputs(input, other)
     return ivy.floor_divide(input, other, out=out)
 
 
 @with_unsupported_dtypes({"2.2 and below": ("float16", "bfloat16")}, "torch")
 @to_ivy_arrays_and_back
-def fmod(x1, x2, out=None):
-    return ivy.fmod(x1, x2, out=out)
+def fmod(input, other, *, out=None):
+    input, other = torch_frontend.promote_types_of_torch_inputs(input, other)
+    return ivy.fmod(input, other, out=out)
 
 
 @to_ivy_arrays_and_back
@@ -259,6 +268,7 @@ def gradient(input, *, spacing=1, dim=None, edge_order=1):
 @with_unsupported_dtypes({"2.2 and below": ("float16",)}, "torch")
 @to_ivy_arrays_and_back
 def hypot(input, other, *, out=None):
+    input, other = torch_frontend.promote_types_of_torch_inputs(input, other)
     return ivy.hypot(input, other, out=out)
 
 
@@ -271,6 +281,7 @@ def i0(input, *, out=None):
 @with_unsupported_dtypes({"2.2 and below": ("bfloat16",)}, "torch")
 @to_ivy_arrays_and_back
 def igamma(input, other, *, out=None):
+    input, other = torch_frontend.promote_types_of_torch_inputs(input, other)
     return ivy.igamma(input, x=other, out=out)
 
 
@@ -282,14 +293,16 @@ def imag(input):
 @with_supported_dtypes({"2.2 and below": ("float16", "float32", "float64")}, "torch")
 @to_ivy_arrays_and_back
 def ldexp(input, other, *, out=None):
-    value = ivy.pow(2, other, out=out)
-    value = ivy.multiply(input, value, out=out)
-    return value
+    input, other = torch_frontend.promote_types_of_torch_inputs(input, other)
+    return ivy.multiply(input, ivy.exp2(other), out=out)
 
 
 @with_unsupported_dtypes({"2.2 and below": ("float16", "bfloat16")}, "torch")
 @to_ivy_arrays_and_back
 def lerp(input, end, weight, *, out=None):
+    input, end = torch_frontend.promote_types_of_torch_inputs(input, end)
+    input, weight = torch_frontend.promote_types_of_torch_inputs(input, weight)
+    end, weight = torch_frontend.promote_types_of_torch_inputs(end, weight)
     return ivy.lerp(input, end, weight, out=out)
 
 
