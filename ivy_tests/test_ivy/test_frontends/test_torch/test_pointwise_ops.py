@@ -274,12 +274,11 @@ def test_torch_add(
 @handle_frontend_test(
     fn_tree="torch.addcdiv",
     dtype_and_x=helpers.dtype_and_values(
-        available_dtypes=helpers.get_dtypes("float"),
+        available_dtypes=helpers.get_dtypes("float_and_complex"),
         num_arrays=3,
         large_abs_safety_factor=2.5,
         small_abs_safety_factor=2.5,
         safety_factor_scale="log",
-        shared_dtype=True,
     ),
     value=st.floats(min_value=-100, max_value=100),
 )
