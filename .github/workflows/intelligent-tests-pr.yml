@@ -32,20 +32,27 @@ jobs:
           echo "Test results summary:"
           cat combined_test_results.txt
 
-      - name: Label Test Failures
+      - name: Combined Test Results (main)
+        run: |
+          find . -name "main_test_results_*.txt" -exec cat {} + > combined_main_test_results.txt
+          echo "Test results summary (main):"
+          cat combined_test_results.txt
+
+      - name: Compare Test Failures
         run: |
           find . -name "test_failures_*.txt" -exec cat {} + > ivy/combined_failures.txt
+          find . -name "main_test_failures_*.txt" -exec cat {} + > ivy/combined_main_failures.txt
           pip install pymongo
           cd ivy
-          python3 scripts/run_tests/label_failures.py combined_failures.txt labeled_combined_failures.txt
+          python3 scripts/run_tests/compare_failures.py combined_failures.txt combined_main_failures.txt filtered_combined_failures.txt
 
       - name: Display Test Failures
         run: |
           cd ivy
-          if [ -s labeled_combined_failures.txt ]
+          if [ -s filtered_combined_failures.txt ]
           then
               echo "The CI captured the following failing tests based on your changes:"
-              cat labeled_combined_failures.txt
+              cat filtered_combined_failures.txt
           else
               echo "No test failures found based on your changes!"
           fi
@@ -74,6 +81,15 @@ jobs:
         uses: actions/checkout@v3
         with:
           path: ivy
+          persist-credentials: false
+          submodules: "recursive"
+          fetch-depth: 100
+
+      - name: Checkout Ivy (main) 🛎
+        uses: actions/checkout@v3
+        with:
+          ref: "main"
+          path: ivy_main
           persist-credentials: false
           submodules: "recursive"
           fetch-depth: 100
@@ -108,17 +124,38 @@ jobs:
           cd ..
         continue-on-error: true
 
+      - name: Run Failed Tests (main)
+        id: tests_main
+        run: |
+          cp ivy/test_failures_${{ matrix.branch }}.txt ivy_main/tests_to_run
+          cd ivy_main
+          python scripts/run_tests/run_tests_pr.py main_test_failures_${{ matrix.branch }}.txt | tee main_test_results_${{ matrix.branch }}.txt
+          cd ..
+        continue-on-error: true
+
       - name: Upload test results
         uses: actions/upload-artifact@v3
         with:
           name: test_results_${{ matrix.branch }}
           path: ivy/test_results_${{ matrix.branch }}.txt
 
+      - name: Upload test results (main)
+        uses: actions/upload-artifact@v3
+        with:
+          name: main_test_results_${{ matrix.branch }}
+          path: ivy/main_test_results_${{ matrix.branch }}.txt
+
       - name: Upload New Failures
         uses: actions/upload-artifact@v3
         with:
           name: test_failures_${{ matrix.branch }}
           path: ivy/test_failures_${{ matrix.branch }}.txt
+
+      - name: Upload New Failures (main)
+        uses: actions/upload-artifact@v3
+        with:
+          name: main_test_failures_${{ matrix.branch }}
+          path: ivy/main_test_failures_${{ matrix.branch }}.txt
 
       - name: Check on failures
         if: steps.tests.outcome != 'success'
