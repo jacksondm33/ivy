@@ -143,7 +143,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: main_test_results_${{ matrix.branch }}
-          path: ivy/main_test_results_${{ matrix.branch }}.txt
+          path: ivy_main/main_test_results_${{ matrix.branch }}.txt
 
       - name: Upload New Failures
         uses: actions/upload-artifact@v3
@@ -155,7 +155,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: main_test_failures_${{ matrix.branch }}
-          path: ivy/main_test_failures_${{ matrix.branch }}.txt
+          path: ivy_main/main_test_failures_${{ matrix.branch }}.txt
 
       - name: Check on failures
         if: steps.tests.outcome != 'success'
