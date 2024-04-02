@@ -113,7 +113,7 @@ jobs:
       - name: Determine and Run Tests
         id: tests
         run: |
-          git clone -b master${{ matrix.branch }} https://github.com/unifyai/Mapping.git --depth 1
+          git clone -b master${{ matrix.branch }} https://github.com/unifyai/Mapping.git --depth 100
           pip install pydriller GitPython
           python ivy/scripts/setup_tests/clone-mapping.py
           cp Mapping/tests.pbz2 ivy/
