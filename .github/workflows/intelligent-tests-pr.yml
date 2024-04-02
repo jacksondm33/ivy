@@ -130,7 +130,7 @@ jobs:
           mkdir ivy_main/.hypothesis && cp -a ivy/.hypothesis/examples ivy_main/.hypothesis/examples
           cp ivy/test_failures_${{ matrix.branch }}.txt ivy_main/tests_to_run
           cd ivy_main
-          python scripts/run_tests/run_tests_pr.py main_test_failures_${{ matrix.branch }}.txt | tee main_test_results_${{ matrix.branch }}.txt
+          python scripts/run_tests/run_tests_pr.py main_test_failures_${{ matrix.branch }}.txt main | tee main_test_results_${{ matrix.branch }}.txt
           cd ..
         continue-on-error: true
 
