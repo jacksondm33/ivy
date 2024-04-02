@@ -36,7 +36,7 @@ jobs:
         run: |
           find . -name "main_test_results_*.txt" -exec cat {} + > combined_main_test_results.txt
           echo "Test results summary (main):"
-          cat combined_test_results.txt
+          cat combined_main_test_results.txt
 
       - name: Compare Test Failures
         run: |
