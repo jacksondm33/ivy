@@ -91,6 +91,12 @@ def pytest_addoption(parser):
         help="Only reuse stored examples from database",
     )
     parser.addoption(
+        "--local-only",
+        default=False,
+        action="store_true",
+        help="Only reuse stored examples from the local cache",
+    )
+    parser.addoption(
         "-R",
         "--robust",
         action="store_true",
@@ -146,6 +152,11 @@ def pytest_configure(config):
 
     if getopt("--reuse-only"):
         profile_settings["phases"] = [Phase.explicit, Phase.reuse]
+
+    if getopt("--local-only"):
+        profile_settings["database"] = DirectoryBasedExampleDatabase(
+            path=hypothesis_cache
+        )
 
     settings.register_profile(
         "ivy_profile",
