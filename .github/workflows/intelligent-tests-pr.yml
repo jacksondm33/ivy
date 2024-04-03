@@ -124,6 +124,16 @@ jobs:
           cd ..
         continue-on-error: true
 
+      - name: Install ivy and fetch binaries (main)
+        run: |
+          sudo pip3 uninstall ivy
+          cd ivy_main
+          sudo pip3 install -e .
+          mkdir .ivy
+          touch .ivy/key.pem
+          echo -n ${{ secrets.USER_API_KEY }} > .ivy/key.pem
+          cd ..
+
       - name: Run Failed Tests (main)
         id: tests_main
         run: |
