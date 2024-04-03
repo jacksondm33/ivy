@@ -126,7 +126,7 @@ jobs:
 
       - name: Install ivy and fetch binaries (main)
         run: |
-          sudo pip3 uninstall ivy
+          sudo pip3 uninstall -y ivy
           cd ivy_main
           sudo pip3 install -e .
           mkdir .ivy
