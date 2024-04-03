@@ -50,7 +50,7 @@ jobs:
          run: |
            cd ivy
            python scripts/setup_tests/setup_tests.py ${{ github.event.inputs.test }}
-           python scripts/run_tests/run_tests_pr.py new_failures.txt
+           python scripts/run_tests/run_tests_pr.py new_failures.txt manual
            cd ..
          continue-on-error: true
 
