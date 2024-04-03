@@ -58,7 +58,7 @@ jobs:
          id: tests_main
          run: |
            mkdir ivy_main/.hypothesis && cp -r ivy/.hypothesis/examples ivy_main/.hypothesis/examples
-           cp ivy/scripts/run_tests_pr.py ivy_main/scripts/run_tests_pr.py
+           cp ivy/scripts/run_tests/run_tests_pr.py ivy_main/scripts/run_tests/run_tests_pr.py
            cp ivy/new_failures.txt ivy_main/tests_to_run
            cd ivy_main
            python scripts/run_tests/run_tests_pr.py main_failures.txt main
