@@ -5,7 +5,6 @@ import sys
 
 if __name__ == "__main__":
     failed = False
-    local_only = "--local-only" if len(sys.argv) >= 3 and sys.argv[2] == "main" else ""
     with open(sys.argv[1], "w") as f_write:
         with open("tests_to_run", "r") as f:
             for line in f:
@@ -14,9 +13,10 @@ if __name__ == "__main__":
                 print(f"{line[:-1]}")
                 print(f"{'*' * 100}\n")
                 sys.stdout.flush()
-                ret = os.system(
-                    f'docker run --rm -v "$(pwd)":/ivy -v "$(pwd)"/.hypothesis:/.hypothesis unifyai/ivy:latest python3 -m pytest --tb=short {test_path} --skip-trace-testing --skip-trace-testing-each --backend {backend} {local_only}'  # noqa
-                )
+                command = f'docker run --rm -v "$(pwd)":/ivy -v "$(pwd)"/.hypothesis:/.hypothesis unifyai/ivy:latest python3 -m pytest --tb=short {test_path} --skip-trace-testing --skip-trace-testing-each --backend {backend}'  # noqa
+                if len(sys.argv) >= 3 and sys.argv[2] == "main":
+                    command += " --num-examples 1000 --reuse-only --local-only"
+                ret = os.system(command)
                 if ret != 0:
                     failed = True
                     f_write.write(line)
