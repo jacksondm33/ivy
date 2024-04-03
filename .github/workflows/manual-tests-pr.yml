@@ -13,11 +13,30 @@ jobs:
      runs-on: ubuntu-latest
      steps:
        - name: Checkout Ivy 🛎
-         uses: actions/checkout@v2
+         uses: actions/checkout@v3
          with:
            path: ivy
            persist-credentials: false
            submodules: "recursive"
+           fetch-depth: 100
+
+       - name: Checkout Ivy (main) 🛎
+         uses: actions/checkout@v3
+         with:
+           ref: "main"
+           path: ivy_main
+           persist-credentials: false
+           submodules: "recursive"
+           fetch-depth: 100
+
+       - name: Install ivy and fetch binaries
+         run: |
+           cd ivy
+           sudo pip3 install -e .
+           mkdir .ivy
+           touch .ivy/key.pem
+           echo -n ${{ secrets.USER_API_KEY }} > .ivy/key.pem
+           cd ..
 
        - name: Get Job URL
          uses: Tiryoh/gha-jobid-action@v0
@@ -29,13 +48,20 @@ jobs:
        - name: Run Tests
          id: tests
          run: |
-           pip3 install pymongo
            cd ivy
-           mkdir .ivy
-           touch .ivy/key.pem
-           echo -n ${{ secrets.USER_API_KEY }} > .ivy/key.pem
            python scripts/setup_tests/setup_tests.py ${{ github.event.inputs.test }}
            python scripts/run_tests/run_tests_pr.py new_failures.txt
+           cd ..
+         continue-on-error: true
+
+       - name: Run Failed Tests (main)
+         id: tests_main
+         run: |
+           mkdir ivy_main/.hypothesis && cp -a ivy/.hypothesis/examples ivy_main/.hypothesis/examples
+           cp ivy/new_failures.txt ivy_main/tests_to_run
+           cd ivy_main
+           python scripts/run_tests/run_tests_pr.py main_failures.txt main
+           cd ..
          continue-on-error: true
 
        - name: Check on failures
