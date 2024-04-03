@@ -88,7 +88,7 @@ jobs:
       - name: Checkout Ivy (main) 🛎
         uses: actions/checkout@v3
         with:
-          ref: "main"
+          ref: "run_tests"
           path: ivy_main
           persist-credentials: false
           submodules: "recursive"
@@ -128,7 +128,6 @@ jobs:
         id: tests_main
         run: |
           mkdir ivy_main/.hypothesis && cp -r ivy/.hypothesis/examples ivy_main/.hypothesis/examples
-          cp ivy/scripts/run_tests/run_tests_pr.py ivy_main/scripts/run_tests/run_tests_pr.py
           cp ivy/test_failures_${{ matrix.branch }}.txt ivy_main/tests_to_run
           cd ivy_main
           python scripts/run_tests/run_tests_pr.py main_test_failures_${{ matrix.branch }}.txt main | tee main_test_results_${{ matrix.branch }}.txt
