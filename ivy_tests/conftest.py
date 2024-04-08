@@ -97,6 +97,12 @@ def pytest_addoption(parser):
         help="Only reuse stored examples from the local cache",
     )
     parser.addoption(
+        "--derandomize",
+        default=False,
+        action="store_true",
+        help="Use the Hypothesis `derandomize` setting",
+    )
+    parser.addoption(
         "-R",
         "--robust",
         action="store_true",
@@ -157,6 +163,9 @@ def pytest_configure(config):
         profile_settings["database"] = DirectoryBasedExampleDatabase(
             path=hypothesis_cache
         )
+
+    if getopt("--derandomize"):
+        profile_settings["derandomize"] = True
 
     settings.register_profile(
         "ivy_profile",
