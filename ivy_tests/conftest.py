@@ -164,9 +164,6 @@ def pytest_configure(config):
             path=hypothesis_cache
         )
 
-    if getopt("--derandomize"):
-        profile_settings["derandomize"] = True
-
     settings.register_profile(
         "ivy_profile",
         **profile_settings,
@@ -191,5 +188,7 @@ def pytest_configure(config):
 
     if getopt("robust"):
         settings.load_profile("robust")
+    elif getopt("derandomize"):
+        settings.load_profile("diff")
     else:
         settings.load_profile("ivy_profile")
