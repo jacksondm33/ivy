@@ -222,10 +222,10 @@ def _get_dtypes(fn, complement=True):
     # We only care about getting dtype info from the base function
     # if we do need to at some point use dtype information from the parent function
     # we can comment out the following condition
-    is_frontend_fn = "frontend" in fn.__module__
-    is_backend_fn = "backend" in fn.__module__ and not is_frontend_fn
+    is_frontend_fn = fn.__module__.startswith("ivy.functional.frontends")
+    is_backend_fn = fn.__module__.startswith("ivy.functional.backends")
     has_unsupported_dtypes_attr = hasattr(fn, "unsupported_dtypes")
-    if not is_backend_fn and not is_frontend_fn and not has_unsupported_dtypes_attr:
+    if not (is_backend_fn or is_frontend_fn or has_unsupported_dtypes_attr):
         if complement:
             supported = set(ivy.all_dtypes).difference(supported)
         return supported
@@ -1708,12 +1708,11 @@ def function_supported_dtypes(fn: Callable, recurse: bool = True) -> Union[Tuple
             "compositional": function_supported_dtypes(fn.compos, recurse=recurse),
             "primary": _get_dtypes(fn, complement=False),
         }
-    else:
-        supported_dtypes = set(_get_dtypes(fn, complement=False))
-        if recurse:
-            supported_dtypes = _nested_get(
-                fn, supported_dtypes, set.intersection, function_supported_dtypes
-            )
+    supported_dtypes = set(_get_dtypes(fn, complement=False))
+    if recurse:
+        supported_dtypes = _nested_get(
+            fn, supported_dtypes, set.intersection, function_supported_dtypes
+        )
     return (
         supported_dtypes
         if isinstance(supported_dtypes, dict)
