@@ -75,63 +75,74 @@ def _lstrip_lines(source: str) -> str:
     return source
 
 
-# Get the list of function used the function
+# Try to resolve a name referenced in a given function
+def _resolve_name(func, name):
+    # Check if `func` is a method
+    func_module = importlib.import_module(func.__module__)
+    func_class_name = func.__qualname__.rpartition(".")[0]
+    func_class = getattr(func_module, func_class_name, None)
+    if inspect.isclass(func_class):
+        # Resolve instance/class method keywords
+        if name in ("self", "cls"):
+            return func_class
+        # Try to resolve in class
+        if hasattr(func_class, name):
+            return getattr(func_class, name)
+    # Try to resolve globally
+    if hasattr(func_module, name):
+        return getattr(func_module, name)
+    return None
+
+
+# Get the set of functions used in a given function
 def _get_function_list(func):
+    names = set()
+
+    # Skip if it's not a function
+    if not (inspect.isfunction(func) or inspect.ismethod(func)):
+        return names
     tree = ast.parse(_lstrip_lines(inspect.getsource(func)))
-    names = {}
+
     # Extract all the call names
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
             nodef = node.func
+            resolved = None
+            attrs = []
+
+            # Queue any attributes
+            while isinstance(nodef, ast.Attribute):
+                attrs.append(nodef.attr)
+                nodef = nodef.value
+
+            # Attempt to resolve name
             if isinstance(nodef, ast.Name):
-                names[nodef.id] = getattr(
-                    func,
-                    "__self__",
-                    getattr(
-                        importlib.import_module(func.__module__),
-                        func.__qualname__.split(".")[0],
-                        None,
-                    ),
-                )
-            elif isinstance(nodef, ast.Attribute):
+                resolved = _resolve_name(func, nodef.id)
+
+            # Support current_backend call
+            elif isinstance(nodef, ast.Call):
                 if (
-                    hasattr(nodef, "value")
-                    and hasattr(nodef.value, "id")
-                    and nodef.value.id not in ["ivy", "self"]
-                    and "_frontend" not in nodef.value.id
+                    isinstance(nodef.func, ast.Name)
+                    and nodef.func.id == "current_backend"
                 ):
-                    continue
-                names[ast.unparse(nodef)] = getattr(
-                    func,
-                    "__self__",
-                    getattr(
-                        importlib.import_module(func.__module__),
-                        func.__qualname__.split(".")[0],
-                        None,
-                    ),
-                )
+                    resolved = current_backend()
+
+            if resolved is None:
+                continue
+            # Recursively get attributes of the resolved name
+            try:
+                resolved_node = functools.reduce(getattr, reversed(attrs), resolved)
+            except AttributeError:
+                continue
+
+            names.add(resolved_node)
 
     return names
 
 
-# Get the reference of the functions from string
-def _get_functions_from_string(func_names, module):
-    ret = set()
-    # We only care about the functions in the ivy or the same module
-    for orig_func_name in func_names.keys():
-        func_name = orig_func_name.split(".")[-1]
-        if hasattr(ivy, func_name) and callable(getattr(ivy, func_name, None)):
-            ret.add(getattr(ivy, func_name))
-        elif hasattr(module, func_name) and callable(getattr(module, func_name, None)):
-            ret.add(getattr(module, func_name))
-        elif callable(getattr(func_names[orig_func_name], func_name, None)):
-            ret.add(getattr(func_names[orig_func_name], func_name))
-    return ret
-
-
 # Get dtypes/device of nested functions, used for unsupported and supported dtypes
 # IMPORTANT: a few caveats:
-# 1. The base functions must be defined in ivy or the same module
+# 1. The base functions must be defined in a function's class or module
 # 2. If the dtypes/devices are set not in the base function, it will not be detected
 # 3. Nested function cannot be parsed, due to be unable to get function reference
 # 4. Functions need to be directly called, not assigned to a variable
@@ -146,17 +157,24 @@ def _nested_get(f, base_set, merge_fn, get_fn, wrapper=set):
             continue
         visited.add(fn)
 
-        # if it's in the backend, we can get the dtypes directly
-        # if it's in the front end, we need to recurse
-        # if it's einops, we need to recurse
-        if not getattr(fn, "__module__", None):
+        # Check if the function is part of ivy
+        is_ivy_fn = (
+            hasattr(fn, "__module__")
+            and fn.__module__
+            and fn.__module__.split(".")[0] == "ivy"
+        )
+        if not is_ivy_fn:
             continue
-        is_frontend_fn = "frontend" in fn.__module__
-        is_backend_fn = "backend" in fn.__module__ and not is_frontend_fn
+
+        is_frontend_fn = fn.__module__.startswith("ivy.functional.frontends")
+        is_backend_fn = fn.__module__.startswith("ivy.functional.backends")
         is_einops_fn = hasattr(fn, "__name__") and "einops" in fn.__name__
-        if is_backend_fn:
+
+        # If it's a backend, frontend, or einops function,
+        # check if it has supported dtypes
+        if is_backend_fn or is_frontend_fn or is_einops_fn:
             f_supported = get_fn(fn, False)
-            if hasattr(fn, "partial_mixed_handler"):
+            if is_backend_fn and hasattr(fn, "partial_mixed_handler"):
                 f_supported = merge_fn(
                     wrapper(f_supported["compositional"]),
                     wrapper(f_supported["primary"]),
@@ -168,47 +186,10 @@ def _nested_get(f, base_set, merge_fn, get_fn, wrapper=set):
                     f" `ivy.{fn.__name__}` for more details"
                 )
             out = merge_fn(wrapper(f_supported), out)
-            continue
-        elif is_frontend_fn or (hasattr(fn, "__name__") and is_einops_fn):
-            f_supported = wrapper(get_fn(fn, False))
-            out = merge_fn(f_supported, out)
 
-        # skip if it's not a function
-
-        if not (inspect.isfunction(fn) or inspect.ismethod(fn)):
-            continue
-
+        # Recursively check any functions used in the function
         fl = _get_function_list(fn)
-        res = list(_get_functions_from_string(fl, __import__(fn.__module__)))
-        if is_frontend_fn:
-            frontends = {
-                "jax_frontend": "ivy.functional.frontends.jax",
-                "jnp_frontend": "ivy.functional.frontends.jax.numpy",
-                "np_frontend": "ivy.functional.frontends.numpy",
-                "tf_frontend": "ivy.functional.frontends.tensorflow",
-                "torch_frontend": "ivy.functional.frontends.torch",
-                "paddle_frontend": "ivy.functional.frontends.paddle",
-            }
-            for key in fl:
-                if "frontend" in key:
-                    frontend_fn = fl[key]
-                    for frontend in frontends:
-                        if frontend in key:
-                            key = key.replace(frontend, frontends[frontend])
-                    if "(" in key:
-                        key = key.split("(")[0]
-                    frontend_module = ".".join(key.split(".")[:-1])
-                    if (
-                        frontend_module == ""
-                    ):  # single edge case: fn='frontend_outputs_to_ivy_arrays'
-                        continue
-                    frontend_fl = {key: frontend_fn}
-                    res += list(
-                        _get_functions_from_string(
-                            frontend_fl, importlib.import_module(frontend_module)
-                        )
-                    )
-        to_visit.extend(set(res))
+        to_visit.extend(fl)
 
     return out
 
@@ -241,10 +222,10 @@ def _get_dtypes(fn, complement=True):
     # We only care about getting dtype info from the base function
     # if we do need to at some point use dtype information from the parent function
     # we can comment out the following condition
-    is_frontend_fn = "frontend" in fn.__module__
-    is_backend_fn = "backend" in fn.__module__ and not is_frontend_fn
+    is_frontend_fn = fn.__module__.startswith("ivy.functional.frontends")
+    is_backend_fn = fn.__module__.startswith("ivy.functional.backends")
     has_unsupported_dtypes_attr = hasattr(fn, "unsupported_dtypes")
-    if not is_backend_fn and not is_frontend_fn and not has_unsupported_dtypes_attr:
+    if not (is_backend_fn or is_frontend_fn or has_unsupported_dtypes_attr):
         if complement:
             supported = set(ivy.all_dtypes).difference(supported)
         return supported
@@ -1727,12 +1708,11 @@ def function_supported_dtypes(fn: Callable, recurse: bool = True) -> Union[Tuple
             "compositional": function_supported_dtypes(fn.compos, recurse=recurse),
             "primary": _get_dtypes(fn, complement=False),
         }
-    else:
-        supported_dtypes = set(_get_dtypes(fn, complement=False))
-        if recurse:
-            supported_dtypes = _nested_get(
-                fn, supported_dtypes, set.intersection, function_supported_dtypes
-            )
+    supported_dtypes = set(_get_dtypes(fn, complement=False))
+    if recurse:
+        supported_dtypes = _nested_get(
+            fn, supported_dtypes, set.intersection, function_supported_dtypes
+        )
     return (
         supported_dtypes
         if isinstance(supported_dtypes, dict)

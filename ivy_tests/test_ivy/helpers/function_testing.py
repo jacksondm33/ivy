@@ -23,7 +23,7 @@ import ivy
 from ivy_tests.test_ivy.helpers.test_parameter_flags import FunctionTestFlags
 import ivy_tests.test_ivy.helpers.test_parameter_flags as pf
 import ivy_tests.test_ivy.helpers.globals as t_globals
-from ivy.functional.ivy.data_type import _get_function_list, _get_functions_from_string
+from ivy.functional.ivy.data_type import _get_function_list
 from ivy_tests.test_ivy.test_frontends import NativeClass
 from ivy_tests.test_ivy.helpers.structs import FrontendMethodData
 from ivy_tests.test_ivy.helpers.testing_helpers import _create_transpile_report
@@ -2738,12 +2738,8 @@ def gradient_unsupported_dtypes(*, fn):
             if k not in out:
                 out[k] = []
             out[k].extend(v)
-        # skip if it's not a function
-        if not (inspect.isfunction(fn) or inspect.ismethod(fn)):
-            continue
         fl = _get_function_list(fn)
-        res = _get_functions_from_string(fl, __import__(fn.__module__))
-        to_visit.extend(res)
+        to_visit.extend(fl)
     return out
 
 
